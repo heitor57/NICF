@@ -22,7 +22,7 @@ def get_objects(name_space):
     return res
 
 def set_global_seeds(i):
-    tf.set_random_seed(i)
+    tf.random.set_seed(i)
     np.random.seed(i)
     random.seed(i)
 

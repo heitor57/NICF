@@ -33,15 +33,15 @@ class basic_model(object):
         job = list(jobs.keys())[0]
         logger.info("CREATE MODEL", config.model, "GRAPH", graph_name, "VARIABLE SCOPE", variable_scope,"jobs",jobs,"job",job,"task_index",task_index)
         cls.CLUSTER = tf.train.ClusterSpec(jobs)
-        cls.SERVER = tf.train.Server(cls.CLUSTER, job_name=job, task_index=task_index,config=tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True)))
+        cls.SERVER = tf.train.Server(cls.CLUSTER, job_name=job, task_index=task_index,config=tf.compat.v1.ConfigProto(gpu_options=tf.compat.v1.GPUOptions(allow_growth=True)))
         if not graph_name in cls.GRAPHS:
             logger.info("Adding a new tensorflow graph:",graph_name)
             cls.GRAPHS[graph_name] = tf.Graph()
         with cls.GRAPHS[graph_name].as_default():
             model = cls(config, variable_scope=variable_scope, trainable=trainable)
             if not graph_name in cls.SESS:
-                cls.SESS[graph_name] = tf.Session(cls.SERVER.target)
-                cls.SAVER[graph_name] = tf.train.Saver(max_to_keep=50)
+                cls.SESS[graph_name] = tf.compat.v1.Session(cls.SERVER.target)
+                cls.SAVER[graph_name] = tf.compat.v1.train.Saver(max_to_keep=50)
             cls.SESS[graph_name].run(model.init)
         return {"graph": cls.GRAPHS[graph_name],
                "sess": cls.SESS[graph_name],
@@ -57,8 +57,8 @@ class basic_model(object):
         with cls.GRAPHS[graph_name].as_default():
             model = cls(config, variable_scope=variable_scope, trainable=trainable)
             if not graph_name in cls.SESS:
-                cls.SESS[graph_name] = tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True)))
-                cls.SAVER[graph_name] = tf.train.Saver(max_to_keep=50)
+                cls.SESS[graph_name] = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=tf.compat.v1.GPUOptions(allow_growth=True)))
+                cls.SAVER[graph_name] = tf.compat.v1.train.Saver(max_to_keep=50)
             cls.SESS[graph_name].run(model.init)
         return {"graph": cls.GRAPHS[graph_name],
                "sess": cls.SESS[graph_name],
@@ -85,7 +85,7 @@ class basic_model(object):
         self._build_model()
 
     def _build_model(self):
-        with tf.variable_scope(self.variable_scope):
+        with tf.compat.v1.variable_scope(self.variable_scope):
             self._create_placeholders()
             self._create_global_step()
             self._update_placehoders()
@@ -99,7 +99,7 @@ class basic_model(object):
 
     def _create_intializer(self):
         with tf.name_scope("initlializer"):
-            self.init = tf.global_variables_initializer()
+            self.init = tf.compat.v1.global_variables_initializer()
 
     def _create_placeholders(self):
         raise NotImplementedError
@@ -148,11 +148,11 @@ def normalize(inputs,
     Returns:
       A tensor with the same shape and data dtype as `inputs`.
     '''
-    with tf.variable_scope(scope, reuse=reuse):
+    with tf.compat.v1.variable_scope(scope, reuse=reuse):
         inputs_shape = inputs.get_shape()
         params_shape = inputs_shape[-1:]
 
-        mean, variance = tf.nn.moments(inputs, [-1], keep_dims=True)
+        mean, variance = tf.compat.v1.nn.moments(inputs, [-1], keep_dims=True)
         beta = tf.Variable(tf.zeros(params_shape))
         gamma = tf.Variable(tf.ones(params_shape))
         normalized = (inputs - mean) / ((variance + epsilon) ** (.5))
@@ -195,7 +195,7 @@ def embedding(inputs,
 
     inputs = tf.to_int32(tf.reshape(tf.range(2*3), (2, 3)))
     outputs = embedding(inputs, 6, 2, zero_pad=True)
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
         sess.run(tf.global_variables_initializer())
         print sess.run(outputs)
     >>
@@ -213,7 +213,7 @@ def embedding(inputs,
 
     inputs = tf.to_int32(tf.reshape(tf.range(2*3), (2, 3)))
     outputs = embedding(inputs, 6, 2, zero_pad=False)
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
         sess.run(tf.global_variables_initializer())
         print sess.run(outputs)
     >>
@@ -272,7 +272,7 @@ def multihead_attention(queries,
     Returns
       A 3d tensor with shape of (N, T_q, C)
     '''
-    with tf.variable_scope(scope, reuse=reuse):
+    with tf.compat.v1.variable_scope(scope, reuse=reuse):
         # Set the fall back option for num_units
         if num_units is None:
             num_units = queries.get_shape().as_list[-1]
@@ -281,14 +281,14 @@ def multihead_attention(queries,
         # Q = tf.layers.dense(queries, num_units, activation=tf.nn.relu) # (N, T_q, C)
         # K = tf.layers.dense(keys, num_units, activation=tf.nn.relu) # (N, T_k, C)
         # V = tf.layers.dense(keys, num_units, activation=tf.nn.relu) # (N, T_k, C)
-        Q = tf.layers.dense(queries, num_units, activation=None)  # (N, T_q, C)
-        K = tf.layers.dense(keys, num_units, activation=None)  # (N, T_k, C)
-        V = tf.layers.dense(keys, num_units, activation=None)  # (N, T_k, C)
+        Q = tf.compat.v1.layers.dense(queries, num_units, activation=None)  # (N, T_q, C)
+        K = tf.compat.v1.layers.dense(keys, num_units, activation=None)  # (N, T_k, C)
+        V = tf.compat.v1.layers.dense(keys, num_units, activation=None)  # (N, T_k, C)
 
         # Split and concat
-        Q_ = tf.concat(tf.split(Q, num_heads, axis=2), axis=0)  # (h*N, T_q, C/h)
-        K_ = tf.concat(tf.split(K, num_heads, axis=2), axis=0)  # (h*N, T_k, C/h)
-        V_ = tf.concat(tf.split(V, num_heads, axis=2), axis=0)  # (h*N, T_k, C/h)
+        Q_ = tf.compat.v1.concat(tf.split(Q, num_heads, axis=2), axis=0)  # (h*N, T_q, C/h)
+        K_ = tf.compat.v1.concat(tf.split(K, num_heads, axis=2), axis=0)  # (h*N, T_k, C/h)
+        V_ = tf.compat.v1.concat(tf.split(V, num_heads, axis=2), axis=0)  # (h*N, T_k, C/h)
 
         # Multiplication
         outputs = tf.matmul(Q_, tf.transpose(K_, [0, 2, 1]))  # (h*N, T_q, T_k)
@@ -323,7 +323,7 @@ def multihead_attention(queries,
         outputs *= query_masks  # broadcasting. (N, T_q, C)
 
         # Dropouts
-        outputs = tf.layers.dropout(outputs, rate=dropout_rate, training=tf.convert_to_tensor(is_training))
+        outputs = tf.compat.v1.layers.dropout(outputs, rate=dropout_rate, training=tf.convert_to_tensor(is_training))
 
         # Weighted sum
         outputs = tf.matmul(outputs, V_)  # ( h*N, T_q, C/h)
@@ -361,17 +361,17 @@ def feedforward(inputs,
     Returns:
       A 3d tensor with the same shape and dtype as inputs
     '''
-    with tf.variable_scope(scope, reuse=reuse):
+    with tf.compat.v1.variable_scope(scope, reuse=reuse):
         # Inner layer
         params = {"inputs": inputs, "filters": num_units[0], "kernel_size": 1,
                   "activation": tf.nn.relu, "use_bias": True}
-        outputs = tf.layers.conv1d(**params)
-        outputs = tf.layers.dropout(outputs, rate=dropout_rate, training=tf.convert_to_tensor(is_training))
+        outputs = tf.compat.v1.layers.conv1d(**params)
+        outputs = tf.compat.v1.layers.dropout(outputs, rate=dropout_rate, training=tf.convert_to_tensor(is_training))
         # Readout layer
         params = {"inputs": outputs, "filters": num_units[1], "kernel_size": 1,
                   "activation": None, "use_bias": True}
-        outputs = tf.layers.conv1d(**params)
-        outputs = tf.layers.dropout(outputs, rate=dropout_rate, training=tf.convert_to_tensor(is_training))
+        outputs = tf.compat.v1.layers.conv1d(**params)
+        outputs = tf.compat.v1.layers.dropout(outputs, rate=dropout_rate, training=tf.convert_to_tensor(is_training))
 
         # Residual connection
         outputs += inputs
